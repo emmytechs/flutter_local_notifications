@@ -6,6 +6,7 @@ import static android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -277,7 +278,8 @@ public class FlutterLocalNotificationsPlugin
       flags |= PendingIntent.FLAG_IMMUTABLE;
     }
     PendingIntent pendingIntent =
-        PendingIntent.getActivity(context, notificationDetails.id, intent, flags);
+        PendingIntent.getActivity(
+            context, notificationDetails.id, intent, flags, buildSplashScreenOptions());
     DefaultStyleInformation defaultStyleInformation =
         (DefaultStyleInformation) notificationDetails.styleInformation;
     NotificationCompat.Builder builder =
@@ -336,7 +338,8 @@ public class FlutterLocalNotificationsPlugin
         @SuppressLint("UnspecifiedImmutableFlag")
         final PendingIntent actionPendingIntent =
             action.showsUserInterface != null && action.showsUserInterface
-                ? PendingIntent.getActivity(context, requestCode++, actionIntent, actionFlags)
+                ? PendingIntent.getActivity(
+                    context, requestCode++, actionIntent, actionFlags, buildSplashScreenOptions())
                 : PendingIntent.getBroadcast(context, requestCode++, actionIntent, actionFlags);
 
         final Spannable actionTitleSpannable = new SpannableString(action.title);
@@ -1004,6 +1007,26 @@ public class FlutterLocalNotificationsPlugin
     String packageName = context.getPackageName();
     PackageManager packageManager = context.getPackageManager();
     return packageManager.getLaunchIntentForPackage(packageName);
+  }
+
+  /**
+   * ADNC patch: on API 31+, a cold start launched via a notification's PendingIntent defaults to
+   * a blank/solid-color splash screen instead of the app's icon splash — the launching
+   * ActivityOptions carry no preference, and Android falls back on who triggered the launch
+   * (notification taps are attributed to SystemUI, not "the app"/Launcher). The one documented
+   * override, per https://issuetracker.google.com/issues/205021357 (Google) and
+   * https://github.com/MaikuB/flutter_local_notifications/issues/1903 (this plugin, closed
+   * wontfix), is to explicitly request the icon style via ActivityOptions on the PendingIntent
+   * itself, which every Android version checks ahead of the launch-source fallback.
+   */
+  @Nullable
+  private static Bundle buildSplashScreenOptions() {
+    if (VERSION.SDK_INT < 31) {
+      return null;
+    }
+    Bundle options = ActivityOptions.makeBasic().toBundle();
+    options.putInt("android.activity.splashScreenStyle", 1 /* SPLASH_SCREEN_STYLE_ICON */);
+    return options;
   }
 
   private static void setStyle(
