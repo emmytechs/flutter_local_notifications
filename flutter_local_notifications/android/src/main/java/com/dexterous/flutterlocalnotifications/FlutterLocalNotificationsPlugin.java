@@ -6,6 +6,7 @@ import static android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -277,7 +278,8 @@ public class FlutterLocalNotificationsPlugin
       flags |= PendingIntent.FLAG_IMMUTABLE;
     }
     PendingIntent pendingIntent =
-        PendingIntent.getActivity(context, notificationDetails.id, intent, flags);
+        PendingIntent.getActivity(
+            context, notificationDetails.id, intent, flags, buildSplashScreenOptions());
     DefaultStyleInformation defaultStyleInformation =
         (DefaultStyleInformation) notificationDetails.styleInformation;
     NotificationCompat.Builder builder =
@@ -336,7 +338,8 @@ public class FlutterLocalNotificationsPlugin
         @SuppressLint("UnspecifiedImmutableFlag")
         final PendingIntent actionPendingIntent =
             action.showsUserInterface != null && action.showsUserInterface
-                ? PendingIntent.getActivity(context, requestCode++, actionIntent, actionFlags)
+                ? PendingIntent.getActivity(
+                    context, requestCode++, actionIntent, actionFlags, buildSplashScreenOptions())
                 : PendingIntent.getBroadcast(context, requestCode++, actionIntent, actionFlags);
 
         final Spannable actionTitleSpannable = new SpannableString(action.title);
@@ -1004,6 +1007,16 @@ public class FlutterLocalNotificationsPlugin
     String packageName = context.getPackageName();
     PackageManager packageManager = context.getPackageManager();
     return packageManager.getLaunchIntentForPackage(packageName);
+  }
+
+  @Nullable
+  private static Bundle buildSplashScreenOptions() {
+    if (VERSION.SDK_INT < 31) {
+      return null;
+    }
+    Bundle options = ActivityOptions.makeBasic().toBundle();
+    options.putInt("android.activity.splashScreenStyle", 1);
+    return options;
   }
 
   private static void setStyle(
